@@ -12,46 +12,22 @@ import { Label } from "@/components/ui/label";
 
 import { taskAssigningStatus } from "@/lib/data";
 
-import { useParams } from "next/navigation";
+import { useParams,useRouter } from "next/navigation";
 
 import SpecificClientDetails from "@/components/client/SpecificClientDetails";
 
-const salesUsers = [
-    { id: "1", name: "Sadiq Basha" },
-    { id: "2", name: "Shyam Katuri" },
-    { id: "3", name: "Ritu Verma" }
-];
+import axios from "axios";
 
-const dummyClients = [
-    {
-        id: "c1",
-        name: "Rajiv Patel",
-        phone: "9876543210",
-        email: "rajiv@example.com",
-        requirement: "5 Sofas, 1 Dining Table",
-        platform: "Instagram",
-        sourceWebsite: "oakart.co",
-        status: "Unassigned",
-        date: "2023-10-01",
-        assignedTo: "",
-    },
-    {
-        id: "c2",
-        name: "Meena Desai",
-        phone: "9988776655",
-        email: "meena@mayuri.com",
-        requirement: "10 Cafe Chairs",
-        platform: "Facebook",
-        sourceWebsite: "mayurifinserv.com",
-        status: "Assigned",
-        date: "2023-10-02",
-        assignedTo: "Sadiq Basha",
-    }
-];
+import { format, parseISO } from 'date-fns';
+
+import { fetchAllSalesPerson, fetchAllUserQueries, fetchUserQueries, assignSalesPersonToEnquery } from "@/lib/api";
+
 
 export default function ClientDashboardPage() {
 
-    const [clients, setClients] = useState(dummyClients);
+    const router = useRouter();
+
+    const [clients, setClients] = useState(null);
     const [filters, setFilters] = useState({
         email: "",
         name: "",
@@ -59,10 +35,13 @@ export default function ClientDashboardPage() {
         date: "",
         status: "",
     });
-    const [filteredClients, setFilteredClients] = useState(dummyClients);
+
+    const [salesUsers, setSalesUsers] = useState(null);
+
+    const [filteredClients, setFilteredClients] = useState(null);
 
     useEffect(() => {
-        const updated = clients.filter((client) => {
+        const updated = clients && clients.filter((client) => {
             const emailMatch = client.email?.toLowerCase().includes(filters.email.toLowerCase());
             const nameMatch = client.name?.toLowerCase().includes(filters.name.toLowerCase());
             const phoneMatch = client.phone?.toLowerCase().includes(filters.phone.toLowerCase());
@@ -82,6 +61,76 @@ export default function ClientDashboardPage() {
         );
         setClients(updatedClients);
     };
+
+    function formatDate(dateString) {
+        if (!dateString) return 'N/A'; // or return empty string, or show fallback text
+        try {
+            return format(parseISO(dateString), 'dd MMM yyyy, hh:mm a');
+        } catch (err) {
+            console.error("Invalid date string:", dateString, err);
+            return 'Invalid date';
+        }
+    }
+
+    async function selectSalesUser(enqueryId, salesPersonId) {
+
+        try {
+
+            console.log("clientId is ", enqueryId, "userId is ", salesPersonId);
+
+            const response = await assignSalesPersonToEnquery({ enqueryId, salesPersonId });
+
+            const updatedClients = clients.map(client =>
+                client._id === enqueryId ? { ...client, assignedTo: salesPersonId, status: "Assigned" } : client
+            );
+            setClients(updatedClients);
+
+        } catch (error) {
+
+            console.log("error is ", error);
+
+        }
+    }
+
+
+    useEffect(() => {
+
+        async function fetchUserQueries() {
+
+            try {
+
+                const res = await fetchAllUserQueries();
+
+                setClients(res);
+
+            } catch (error) {
+
+                console.log("error is ", error);
+
+            }
+        }
+
+        async function fetchSalesPerson() {
+
+            try {
+
+
+                const result = await fetchAllSalesPerson();
+
+                setSalesUsers(result);
+
+            } catch (error) {
+
+                console.log("error is ", error);
+
+            }
+        }
+
+
+        fetchUserQueries();
+        fetchSalesPerson();
+
+    }, []);
 
     return (
         <div className="p-6">
@@ -160,30 +209,30 @@ export default function ClientDashboardPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredClients.map(client => (
-                                <TableRow key={client.id}>
+                            {filteredClients && filteredClients?.map(client => (
+                                <TableRow key={client.id} onClick ={()=> router.push(`/client-dashboard/${client._id}`)}>
                                     <TableCell>{client.name}</TableCell>
                                     <TableCell>{client.email}</TableCell>
                                     <TableCell>{client.requirement}</TableCell>
-                                    <TableCell>{client.platform}</TableCell>
+                                    <TableCell>{client.sourcePlatform}</TableCell>
                                     <TableCell>{client.phone}</TableCell>
-                                    <TableCell>{client.date}</TableCell>
+                                    <TableCell>{formatDate(client.createdAt)}</TableCell>
                                     <TableCell>{client.sourceWebsite}</TableCell>
                                     <TableCell>
                                         <Badge variant={client.status === "Assigned" ? "default" : "outline"}>{client.status}</Badge>
                                     </TableCell>
                                     <TableCell>
-                                        <Select onValueChange={value => handleAssign(client.id, value)}>
+                                        <Select onValueChange={value => selectSalesUser(client._id, value)}>
                                             <SelectTrigger>
                                                 {client.assignedTo === "" ? (
                                                     <SelectValue placeholder="Assign" />
                                                 ) : (
-                                                    <SelectValue placeholder={client.assignedTo} />
+                                                    <SelectValue placeholder={client.assignedTo.name} />
                                                 )}
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {salesUsers.map(user => (
-                                                    <SelectItem key={user.id} value={user.name}>{user.name}</SelectItem>
+                                                {salesUsers && salesUsers.map(user => (
+                                                    <SelectItem key={user._id} value={user._id}>{user.name}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
