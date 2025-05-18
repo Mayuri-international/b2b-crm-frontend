@@ -3,6 +3,13 @@ import "./globals.css";
 // app/layout.js
 import 'bootstrap/dist/css/bootstrap.min.css';
 
+import ReduxProvider from "./providers/ReduxProvider";
+
+import { Toaster } from "react-hot-toast";
+
+import { QueryClientProvider } from "@tanstack/react-query";
+import ReactQueryProvider from "./providers/ReactQueryProvider";
+
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,8 +32,20 @@ export default function RootLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <Toaster position="top-center"></Toaster>
+
+        <ReduxProvider>
+          <ReactQueryProvider>
+            
+            {children}
+
+          </ReactQueryProvider>
+
+        </ReduxProvider>
+
       </body>
     </html>
   );
 }
+
+
