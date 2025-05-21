@@ -99,11 +99,11 @@ export default function QuoteRivisionComponent({ dummyData, setDummyData, client
       ...prev,
       [vendorKey]: { ...vendor }
     }));
-    setEditItemDataAtQuotes(prev => ({
-      ...prev,
-      [itemKey]: { ...item }
-    }));
-    setEditItemKey(itemKey);
+    // setEditItemDataAtQuotes(prev => ({
+    //   ...prev,
+    //   [itemKey]: { ...item }
+    // }));
+    // setEditItemKey(itemKey);
   };
 
   const handleDeleteVendorAtQuotes = async (vendorId, itemIndex, versionIndex) => {
@@ -436,7 +436,7 @@ export default function QuoteRivisionComponent({ dummyData, setDummyData, client
                     )}
                   </td>
                   <td className="border px-3 py-2">
-                    {isEditingMainItem && editItemDataAtQuotes ? (
+                    {isEditingMainItem && Object.keys(editItemDataAtQuotes).length != 0 ? (
                       <input
                         name="finalUnitPrice"
                         type="number"
@@ -479,6 +479,9 @@ export default function QuoteRivisionComponent({ dummyData, setDummyData, client
       </table>
       {/*  Add New Quote Form Modal  */}
       {addNewQuoteFormModal && <AddNewQuoteForm
+
+        dummyData={dummyData}
+        setDummyData={setDummyData}
         setAddNewQuoteFormModal={setAddNewQuoteFormModal}
         addNewQuotation={addNewQuotation}
       />}

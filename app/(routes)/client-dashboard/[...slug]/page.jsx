@@ -115,7 +115,7 @@ export default function Clients() {
       transport: 1000,
       installation: 500,
       notes: "Client prefers premium fabric finish.",
-      totalAmount: 33000 + 22000 + 18 + 1000 + 500, // Helper function below
+      totalAmount: 33000 + 22000 + 9900 + 1000 + 500, // Helper function below
       status: "Finalized"
     }
 
