@@ -22,7 +22,9 @@ import {
   getFilteredRowModel,
 } from '@tanstack/react-table';
 
-const defaultData= [
+import { Button } from '@/components/ui/button';
+
+const defaultData = [
   {
     id: 1,
     name: 'Abram Schleifer',
@@ -175,16 +177,27 @@ export default function TeamManagement() {
 
       <h2 className="text-xl font-bold mb-4">Team Members</h2>
 
-      <div className="mb-4">
-        <Input
-          placeholder="Search..."
-          value={globalFilter}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-          className="w-64"
-        />
+      <div className='flex justify-between items-center'>
+
+        <div className="mb-4">
+          <Input
+            placeholder="Search..."
+            value={globalFilter}
+            onChange={(e) => setGlobalFilter(e.target.value)}
+            className="w-64"
+          />
+        </div>
+
+        <div>
+
+          <Button>Add New Member </Button>
+
+        </div>
+
       </div>
 
-      
+
+
 
       <Table>
         <TableHeader>

@@ -17,10 +17,13 @@ import enquerySlice from "./slice/enquerySlice";
 
 import salesPersonData from "./slice/salesPersonData";
 
+import quoteSlice from "./slice/quoteSlice";
+
 const rootReducer = combineReducers({
 
     enquery:enquerySlice,
-    salesPerson:salesPersonData
+    salesPerson:salesPersonData,
+    quote:quoteSlice,
 
 });
 

@@ -10,6 +10,10 @@ import { Select } from "../ui/select";
 
 import { Button } from "../ui/button";
 
+import { addNewQuotationToClient } from "@/lib/api";
+
+import { handleAxiosError } from "@/lib/handleAxiosError";
+
 
 [{
     clientId: "663c1234567890abcdef111",
@@ -99,7 +103,7 @@ let type_of_item_changes = {
 }
 
 
-export default function AddNewQuoteForm({ dummyData, setDummyData, setAddNewQuoteFormModal, addNewQuotation }) {
+export default function AddNewQuoteForm({ dummyData, setDummyData, setAddNewQuoteFormModal, addNewQuotation,client }) {
 
     // we have to filter out the things on the basis of the version
 
@@ -109,6 +113,7 @@ export default function AddNewQuoteForm({ dummyData, setDummyData, setAddNewQuot
     const { register, handleSubmit, control, reset, watch, setValue, formState: { errors } } = useForm({
         defaultValues: {
             version: "New Quote",
+            clientId: client._id,
             items: [
                 {
                     description: '',
@@ -133,10 +138,36 @@ export default function AddNewQuoteForm({ dummyData, setDummyData, setAddNewQuot
 
     const onSubmit = async (data) => {
         if (data.version === "New Quote") {
-            // ... existing new quote logic ...
+            try {
+                // Create FormData instance
+                const formData = new FormData();
+                
+                // Handle the image file separately
+                if (data.image && data.image[0]) {
+                    formData.append('image', data.image[0]);
+                }
+                
+                // Create a copy of data without the image
+                const jsonData = { ...data };
+                delete jsonData.image;
+                
+                // Convert the rest of the data to JSON and append as a single field
+                formData.append('data', JSON.stringify(jsonData));
 
-            console.log("new quote data ",data);
+                console.log("Form data structure:", {
+                    items: data.items,
+                    itemsType: Array.isArray(data.items) ? "Array" : typeof data.items,
+                    itemsLength: data.items?.length,
+                    fullData: data
+                });
 
+                const result = await addNewQuotationToClient(formData);
+                console.log("result is ", result);
+
+            } catch (error) {
+                console.log("error is ", error);
+                handleAxiosError(error);
+            }
         } else {
             // Updating an existing version
             const versionToUpdate = parseInt(data.version);

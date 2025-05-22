@@ -484,6 +484,7 @@ export default function QuoteRivisionComponent({ dummyData, setDummyData, client
         setDummyData={setDummyData}
         setAddNewQuoteFormModal={setAddNewQuoteFormModal}
         addNewQuotation={addNewQuotation}
+        client={client}
       />}
     </div>
   )

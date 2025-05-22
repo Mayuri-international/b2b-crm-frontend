@@ -26,6 +26,13 @@ import { qouteTablesHeader } from "../../../../lib/data";
 
 import QuoteRivisionComponent from '@/components/client/QuoteRevisionCompo';
 
+import { getAllQuote } from '@/lib/api';
+
+
+import { useSelector, useDispatch } from 'react-redux';
+import { setQuoteData } from '@/app/store/slice/quoteSlice';
+
+import { handleAxiosError } from '@/lib/handleAxiosError';
 
 export default function Clients() {
 
@@ -33,9 +40,13 @@ export default function Clients() {
 
   const { slug } = useParams();
 
+  const dispatch = useDispatch();
+
   const cachedQueryData = queryClient.getQueryData(['clientQueries']);
 
   console.log("cachedQueryData", cachedQueryData);
+
+  const quoteData = useSelector((state) => state.quote.data);
 
   // filtered Query Data 
 
@@ -168,6 +179,35 @@ export default function Clients() {
 
   console.log("data is ", data);
 
+  useEffect(() => {
+
+
+    async function fetchQuoteData() {
+
+      try {
+
+        const result = await getAllQuote(client._id);
+
+        dispatch(setQuoteData(result));
+
+      } catch (error) {
+
+        console.log("error is ", error);
+
+        handleAxiosError(error);
+
+      }
+
+    }
+
+    if (!quoteData) {
+
+      fetchQuoteData();
+
+    }
+
+
+  }, []);
 
 
   return (
@@ -214,7 +254,8 @@ export default function Clients() {
         <QuoteRivisionComponent
           dummyData={dummyData}
           setDummyData={setDummyData}
-          client={client} setClient={setClient}
+          client={client}
+          setClient={setClient}
         />
 
       </Card>
