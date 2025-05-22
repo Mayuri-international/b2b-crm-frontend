@@ -23,6 +23,7 @@ import {
 } from '@tanstack/react-table';
 
 import { Button } from '@/components/ui/button';
+import AddNewMember from '@/components/team-management/AddNewMember';
 
 const defaultData = [
   {
@@ -57,6 +58,8 @@ const defaultData = [
 export default function TeamManagement() {
   const [data, setData] = useState(defaultData);
   const [globalFilter, setGlobalFilter] = useState('');
+
+  const [addNewMemberModal, setAddNewMemberModal] = useState(false);
 
   const handleEdit = (rowIndex, columnId, value) => {
     setData((old) =>
@@ -190,13 +193,11 @@ export default function TeamManagement() {
 
         <div>
 
-          <Button>Add New Member </Button>
+          <Button onClick={() => setAddNewMemberModal(true)}>Add New Member </Button>
 
         </div>
 
       </div>
-
-
 
 
       <Table>
@@ -226,6 +227,18 @@ export default function TeamManagement() {
           ))}
         </TableBody>
       </Table>
+
+      {
+
+        addNewMemberModal && <AddNewMember 
+
+          setAddNewMemberModal={setAddNewMemberModal}
+
+        />
+
+      }
+
     </div>
   );
 }
+

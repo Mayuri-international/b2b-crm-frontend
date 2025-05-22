@@ -1,160 +1,103 @@
-
 'use client'
 
 import { Label } from "@radix-ui/react-label";
 import { useForm } from "react-hook-form";
 import { Input } from "../ui/input";
-import { Select } from "../ui/select";
-
 import { user_role } from "@/lib/data";
-
 import { handleAxiosError } from "@/lib/handleAxiosError";
 
-export default function AddNewMember() {
+import { RxCrossCircled } from "react-icons/rx";
 
 
+export default function AddNewMemberModal({ setAddNewMemberModal }) {
     const {
-
         register,
         formState: { errors },
         reset,
         handleSubmit,
-
     } = useForm();
 
-
-    async function handleSubmit(data) {
-
+    async function addNewMemberSubmitHandler(data) {
         try {
-
             console.log("form data is ", data);
-
         } catch (error) {
-
             console.log("error is ", error);
-
             handleAxiosError(error);
         }
     }
 
     return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            {/* Modal Content */}
+            <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
 
-        <div>
+                <div className="relative">
 
-            <div className="flex flex-col gap-3">
-
-                <h1>Add New Member </h1>
-
-                <form onSubmit={handleSubmit(handleSubmit)}>
+                    <RxCrossCircled size={30} className="top-0 right-0 absolute cursor-pointer" onClick={() => setAddNewMemberModal(false)}></RxCrossCircled>
+                    <h1 className="text-2xl font-semibold mb-4 text-start">Add New Member</h1>
 
 
+                </div>
+
+                <form onSubmit={handleSubmit(addNewMemberSubmitHandler)} className="flex flex-col gap-4">
                     <div>
-
                         <Label className="block mb-1">User Name</Label>
-
                         <Input
-
-                            {...register("name", {
-                                required: "name is required",
-
-                            })}
-
+                            {...register("name", { required: "Name is required" })}
                         />
-
                         {errors?.name && (
-                            <p className="text-red-600 text-sm mt-1">
-                                {errors.name.message}
-                            </p>
-
+                            <p className="text-red-600 text-sm mt-1">{errors.name.message}</p>
                         )}
-
                     </div>
 
                     <div>
-
                         <Label className="block mb-1">User Email</Label>
-
                         <Input
-
-                            {...register("email", {
-                                required: "email is required",
-
-                            })}
-
+                            {...register("email", { required: "Email is required" })}
                         />
-
                         {errors?.email && (
-                            <p className="text-red-600 text-sm mt-1">
-                                {errors.email.message}
-                            </p>
-
+                            <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>
                         )}
-
                     </div>
 
-
                     <div>
-
                         <Label className="block mb-1">Password</Label>
-
                         <Input
-
-                            {...register("password", {
-                                required: "email is required",
-
-                            })}
-
+                            type="password"
+                            {...register("password", { required: "Password is required" })}
                         />
-
                         {errors?.password && (
-                            <p className="text-red-600 text-sm mt-1">
-                                {errors.password.message}
-                            </p>
-
+                            <p className="text-red-600 text-sm mt-1">{errors.password.message}</p>
                         )}
-
                     </div>
-
-                    {/* select role  */}
 
                     <div>
-
-                        <Select
-
-                            {...register("role", {
-                                required: "role is required "
-                            })}
-
-
+                        <Label className="block mb-1">Role</Label>
+                        <select
+                            {...register("role", { required: "Role is required" })}
+                            className="w-full p-2 border rounded-md"
                         >
-
-                            <option>
-
-                                {
-
-                                    Object.values(user_role).map((role) => (
-
-                                        <option key={role} value={role}>{role}</option>
-                                    ))
-                                }
-
-                            </option>
-
-
-                        </Select>
-
+                            <option value="">Select Role</option>
+                            {Object.values(user_role).map((role) => (
+                                <option key={role} value={role}>
+                                    {role}
+                                </option>
+                            ))}
+                        </select>
+                        {errors?.role && (
+                            <p className="text-red-600 text-sm mt-1">{errors.role.message}</p>
+                        )}
                     </div>
 
-
-
+                    <button
+                        type="submit"
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-md mt-2"
+                    >
+                        Submit
+                    </button>
                 </form>
-
             </div>
-
-
-
         </div>
-    )
-
+    );
 }
 
