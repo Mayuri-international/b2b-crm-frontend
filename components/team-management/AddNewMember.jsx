@@ -8,6 +8,16 @@ import { handleAxiosError } from "@/lib/handleAxiosError";
 
 import { RxCrossCircled } from "react-icons/rx";
 
+import { createNewUser } from "@/lib/api";
+import toast from "react-hot-toast";
+import { useEffect } from "react";
+
+import { useSelector, useDispatch } from "react-redux";
+import { setUserData } from "@/app/store/slice/salesPersonData";
+
+import { getAllMembersData } from "@/lib/api";
+
+import { addNewMember } from "@/app/store/slice/membersSlice";
 
 export default function AddNewMemberModal({ setAddNewMemberModal }) {
     const {
@@ -17,14 +27,27 @@ export default function AddNewMemberModal({ setAddNewMemberModal }) {
         handleSubmit,
     } = useForm();
 
+    const membersData = useSelector((state) => state.members.data);
+    const dispatch = useDispatch();
+
     async function addNewMemberSubmitHandler(data) {
         try {
             console.log("form data is ", data);
+
+            const result = await createNewUser(data);
+
+            dispatch(addNewMember(result));
+            setAddNewMemberModal(false); // close modal
+
+            toast.success("new member added successfully");
+
         } catch (error) {
             console.log("error is ", error);
             handleAxiosError(error);
         }
     }
+
+
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">

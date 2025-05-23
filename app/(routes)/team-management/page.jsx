@@ -25,55 +25,91 @@ import {
 import { Button } from '@/components/ui/button';
 import AddNewMember from '@/components/team-management/AddNewMember';
 
-const defaultData = [
-  {
-    id: 1,
-    name: 'Abram Schleifer',
-    email: 'abram@example.com',
-    password: '********',
-    role: 'Sales Assistant',
-    office: 'Edinburgh',
-    image: 'https://randomuser.me/api/portraits/men/1.jpg',
-  },
-  {
-    id: 2,
-    name: 'Charlotte Anderson',
-    email: 'charlotte@example.com',
-    password: '********',
-    role: 'Marketing Manager',
-    office: 'London',
-    image: 'https://randomuser.me/api/portraits/women/2.jpg',
-  },
-  {
-    id: 3,
-    name: 'Ethan Brown',
-    email: 'ethan@example.com',
-    password: '********',
-    role: 'Software Engineer',
-    office: 'San Francisco',
-    image: 'https://randomuser.me/api/portraits/men/3.jpg',
-  },
-];
+import { useEffect } from 'react';
+
+import { useSelector, useDispatch } from 'react-redux';
+
+import { handleAxiosError } from '@/lib/handleAxiosError';
+
+import { getAllMembersData } from '@/lib/api';
+
+import { setAllMembersData } from "../../store/slice/membersSlice";
+
+import { formatDateForInput } from '@/lib/utils';
+
+import toast from 'react-hot-toast';
+
+import EditableDropdownCell from '@/components/team-management/EditableDropdownCell';
+
+import { updateMembersData } from '@/lib/api';
+
+import { updateExistingMembersData } from '../../store/slice/membersSlice';
+
+import { clearAllMembersData } from '../../store/slice/membersSlice';
+
+import { debounce } from 'lodash';
+
 
 export default function TeamManagement() {
-  const [data, setData] = useState(defaultData);
+
   const [globalFilter, setGlobalFilter] = useState('');
 
   const [addNewMemberModal, setAddNewMemberModal] = useState(false);
 
+  const membersData = useSelector((state) => state.members.data);
+
+  const dispatch = useDispatch();
+
+  const debouncedUpdate = debounce(async (dataToUpdate, reduxDataToUpdate, dispatch, columnId) => {
+    try {
+      const result = await updateMembersData(dataToUpdate);
+
+      if (columnId != "password") {
+
+        dispatch(updateExistingMembersData(reduxDataToUpdate));
+        console.log("result is ", result);
+
+      }
+      else{
+
+        toast.success("password updated sucessfully");
+
+      }
+
+    } catch (error) {
+      console.log("error is : ", error);
+      handleAxiosError(error);
+    }
+  }, 500); // delay of 500ms
+
   const handleEdit = (rowIndex, columnId, value) => {
-    setData((old) =>
-      old.map((row, index) => {
-        if (index === rowIndex) {
-          return {
-            ...row,
-            [columnId]: value,
-          };
-        }
-        return row;
-      })
-    );
+    if (value === "") return;
+
+    console.log("handle edit ke andar ", rowIndex, columnId, value);
+
+    const dataToUpdate = {
+      userId: membersData[rowIndex]._id,
+      [columnId]: value,
+    };
+
+    let reduxDataToUpdate;
+
+    if (columnId !== "password") {
+
+      reduxDataToUpdate = {
+        userId: membersData[rowIndex]._id,
+        columnToUpdate: columnId,
+        value: value,
+      };
+
+    }
+
+    debouncedUpdate(dataToUpdate, reduxDataToUpdate, dispatch, columnId);
+
   };
+
+
+
 
   const EditableCell = ({
     row,
@@ -100,19 +136,26 @@ export default function TeamManagement() {
     );
   };
 
+
   const columns = [
     {
       header: 'User',
       accessorKey: 'name',
-      cell: ({ row }) => {
+      cell: ({ row, getValue }) => {
         const member = row.original;
         return (
           <div className="flex items-center gap-3">
             <Avatar className="h-9 w-9">
-              <AvatarImage src={member.image} alt={member.name} />
-              <AvatarFallback>{member.name[0]}</AvatarFallback>
+              <AvatarImage
+                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=random&color=fff`}
+                alt={member.name}
+              />
             </Avatar>
-            <span>{member.name}</span>
+            <EditableCell
+              row={row}
+              columnId="name"
+              value={getValue()}
+            />
           </div>
         );
       },
@@ -120,6 +163,7 @@ export default function TeamManagement() {
     {
       header: 'Email',
       accessorKey: 'email',
+
       cell: ({ row, getValue }) => (
         <EditableCell
           row={row}
@@ -135,28 +179,28 @@ export default function TeamManagement() {
         <EditableCell
           row={row}
           columnId="password"
-          value={getValue()}
+          value={""}
         />
       ),
     },
+    {
+      header: 'Created At',
+      accessorKey: 'createdAt',
+      cell: ({ getValue }) => {
+        const rawDate = getValue();
+        const formattedDate = formatDateForInput(rawDate); // You already have this util
+        return <span>{formattedDate}</span>;
+      },
+    },
+
     {
       header: 'Role',
       accessorKey: 'role',
       cell: ({ row, getValue }) => (
-        <EditableCell
+        <EditableDropdownCell
           row={row}
           columnId="role"
-          value={getValue()}
-        />
-      ),
-    },
-    {
-      header: 'Office',
-      accessorKey: 'office',
-      cell: ({ row, getValue }) => (
-        <EditableCell
-          row={row}
-          columnId="office"
+          handleEdit={handleEdit}
           value={getValue()}
         />
       ),
@@ -164,7 +208,7 @@ export default function TeamManagement() {
   ];
 
   const table = useReactTable({
-    data,
+    data: membersData,
     columns,
     state: {
       globalFilter,
@@ -174,9 +218,48 @@ export default function TeamManagement() {
     getCoreRowModel: getCoreRowModel(),
   });
 
-  return (
-    <div className="p-6">
 
+  console.log("all user data is ", membersData);
+
+
+  // useEffect hook 
+
+  useEffect(() => {
+
+    async function getAllUserData() {
+
+      try {
+
+        const result = await getAllMembersData();
+
+        dispatch(setAllMembersData(result));
+
+        toast.success("all user data fetched successfully");
+
+      } catch (error) {
+
+        console.log("error is :", error);
+        handleAxiosError(error);
+
+      }
+
+    }
+
+    if (!membersData || membersData.length === 0) {
+
+      console.log("hellow ")
+
+      getAllUserData();
+
+    }
+
+
+  }, []);
+
+  return (
+
+
+    <div className="p-6">
 
       <h2 className="text-xl font-bold mb-4">Team Members</h2>
 
@@ -215,22 +298,27 @@ export default function TeamManagement() {
             </TableRow>
           ))}
         </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id}>
-              {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id}>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))}
-        </TableBody>
+
+        {
+
+          membersData && <TableBody>
+            {table.getRowModel().rows.map((row) => (
+              <TableRow key={row.id}>
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        }
+
       </Table>
 
       {
 
-        addNewMemberModal && <AddNewMember 
+        addNewMemberModal && <AddNewMember
 
           setAddNewMemberModal={setAddNewMemberModal}
 

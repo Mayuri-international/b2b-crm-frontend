@@ -28,6 +28,7 @@ import { FiEye } from "react-icons/fi";
 import { HiOutlineArrowRight } from 'react-icons/hi';
 import { enqueryHeadingName } from "@/lib/data";
 
+import { clearSalesPersonData } from "@/app/store/slice/salesPersonData";
 
 
 export default function ClientDashboardPage() {
@@ -52,11 +53,12 @@ export default function ClientDashboardPage() {
         queryKey: ['clientQueries'],
         queryFn: fetchAllUserQueries,
         enabled: !cachedQueryData,
-        onSuccess:(data)=>{
+        onSuccess: (data) => {
 
-            console.log("on success query data ",data);
+            console.log("on success query data ", data);
         }
     });
+
 
     const clients = cachedQueryData || fetchedClientsQuery;
 

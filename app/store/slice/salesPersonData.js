@@ -20,11 +20,19 @@ const salesPersonSlice = createSlice({
 
             state.data  = action.payload;
 
+        },
+
+        clearSalesPersonData :(state,action)=>{
+
+            state.data = null;
+
         }
+
+        
     }
 })
 
-export const {setUserData} = salesPersonSlice.actions;
+export const {setUserData,clearSalesPersonData} = salesPersonSlice.actions;
 
 export default salesPersonSlice.reducer;
 
