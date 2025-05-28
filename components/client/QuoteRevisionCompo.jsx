@@ -1,14 +1,46 @@
 'use client'
 
 import { Button } from "../ui/button";
-import { qouteTablesHeader } from "@/lib/data";
+import { qouteTablesHeader, user_role } from "@/lib/data";
 import { useState } from "react";
 import { formatDateForInput } from '@/lib/utils';
 import AddNewQuoteForm from "./NewQuoteForm";
 import { Input } from "../ui/input";
 import toast from "react-hot-toast";
+import {
+  updateVendorDataAtQuotes,
+  addNewVendor,
+  deleteVendor,
+  setLoading,
+  setError,
+  addNewQuote
+} from "@/app/store/slice/quoteSlice";
+import { useDispatch, useSelector } from "react-redux";
+import { handleAxiosError } from "@/lib/handleAxiosError";
+import { addNewQuotationToClient } from "@/lib/api";
+import { useForm } from "react-hook-form";
 
-export default function QuoteRivisionComponent({ dummyData, setDummyData, client, setClient }) {
+import { clearAllQuoteData } from "@/app/store/slice/quoteSlice";
+
+export default function QuoteRivisionComponent({ dummyData, client, setClient }) {
+  const dispatch = useDispatch();
+  const { data: quoteData, loading, error } = useSelector((state) => state.quote);
+  const membersData = useSelector((state) => state.members.data);
+  const { register, handleSubmit, formState: { errors } } = useForm();
+
+  // dispatch(clearAllQuoteData());
+  
+  // Use quoteData instead of dummyData for Redux state
+  const data = quoteData || dummyData;
+  
+  // Filter vendors from members data
+  const vendorData = membersData?.filter((val) => val.role === user_role.vendor) || [];
+
+  // Helper function to get vendor name by ID
+  const getVendorNameById = (vendorId) => {
+    const vendor = vendorData.find(v => v._id === vendorId);
+    return vendor ? vendor.name : 'Unknown Vendor';
+  };
 
   const [addNewQuoteFormModal, setAddNewQuoteFormModal] = useState(false);
   const [isMainRowEditing, setMainRowEditing] = useState(false);
@@ -19,49 +51,53 @@ export default function QuoteRivisionComponent({ dummyData, setDummyData, client
   const [editingQuoteIndex, setEditingQuoteIndex] = useState(null);
   const [editQuoteData, setEditQuoteData] = useState({}); // this is the main thing 
 
+
   const handleVendorDetailsChangeHandlerAtQuotes = (e, key) => {
     const { name, value } = e.target;
     setEditVendorDataAtQuotes((prev) => ({
       ...prev,
       [key]: {
         ...prev[key],
-        [name]:
-          name === "quantity" || name === "costPerUnit" || name === "advance"
-            ? Number(value)
-            : value,
+        [name]: name === "vendorId" ? value : 
+                name === "quantity" || name === "costPerUnit" || name === "advance"
+                ? Number(value)
+                : value,
       },
     }));
   };
 
   const addNewVendorAtQuotes = async (versionIndex, itemIndex) => {
-    const updatedData = [...dummyData];
-    let updatedVendors = updatedData[versionIndex].items[itemIndex].vendors;
-    if (!updatedVendors) {
-      updatedVendors = [];
+    try {
+      dispatch(setLoading(true));
+      const newVendor = {
+        vendorId: "",
+        description: "",
+        quantity: "",
+        costPerUnit: "",
+        advance: "",
+        deliveryDate: Date.now(),
+      };
+
+      dispatch(addNewVendor({ versionIndex, itemIndex, vendor: newVendor }));
+      handleEditVendorAtQuotes(versionIndex, itemIndex, data[versionIndex].items[itemIndex].vendors.length);
+    } catch (error) {
+      dispatch(setError(error.message));
+      handleAxiosError(error);
+    } finally {
+      dispatch(setLoading(false));
     }
-    updatedVendors.push({
-      vendorId: "",
-      description: "", // Optional
-      quantity: "",
-      costPerUnit: "",
-      advance: "",
-      deliveryDate: Date.now(),
-    });
-    updatedData[versionIndex].items[itemIndex].vendors = updatedVendors;
-    setDummyData(updatedData);
-    handleEditVendorAtQuotes(versionIndex, itemIndex, updatedData[versionIndex].items[itemIndex].vendors.length - 1);
-  }
+  };
 
   const handleEditItemAtQuotes = (quoteIndex, itemIndex) => {
     const itemKey = `${quoteIndex}-${itemIndex}`;
-    const item = dummyData[quoteIndex].items[itemIndex];
+    const item = data[quoteIndex].items[itemIndex];
     setEditItemKey(itemKey);
     setEditItemDataAtQuotes(prev => ({
       ...prev,
       [itemKey]: { ...item }
     }));
     setEditingQuoteIndex(itemKey);
-    setEditQuoteData({ ...dummyData[quoteIndex] });
+    setEditQuoteData({ ...data[quoteIndex] });
   };
 
   const handleQuoteFieldChange = (e) => {
@@ -76,45 +112,101 @@ export default function QuoteRivisionComponent({ dummyData, setDummyData, client
 
   const handleSaveVendorChangesAtQuotes = async (versionIndex, itemIndex, vendorIdx) => {
     try {
-      const updatedDummyData = [...dummyData];
-      const updatedVendorData = editVendorDataAtQuotes[`${versionIndex}-${itemIndex}-${vendorIdx}`];
-      updatedDummyData[versionIndex].items[itemIndex].vendors[vendorIdx] = {
-        ...updatedDummyData[versionIndex].items[itemIndex].vendors[vendorIdx],
-        ...updatedVendorData
+      // Validate required fields
+      const vendorKey = `${versionIndex}-${itemIndex}-${vendorIdx}`;
+      let vendorData = editVendorDataAtQuotes[vendorKey];
+      
+      if (!vendorData?.vendorId) {
+        toast.error("Please select a vendor");
+        return;
       }
-      setDummyData(updatedDummyData);
-      setEditingVendorKey({});
+      if (!vendorData?.description?.trim()) {
+        toast.error("Please enter a description");
+        return;
+      }
+      if (!vendorData?.quantity) {
+        toast.error("Please enter quantity");
+        return;
+      }
+      if (!vendorData?.costPerUnit) {
+        toast.error("Please enter cost per unit");
+        return;
+      }
+      if (!vendorData?.deliveryDate) {
+        toast.error("Please select delivery date");
+        return;
+      }
+
+      console.log("vendor key ",vendorKey);
+
+      console.log("vendor data is",vendorData);
+
+      // add version and item version
+
+      vendorData = {
+        ...vendorData,
+        version: data[versionIndex].version,
+        itemIndex: itemIndex,
+
+      };
+
+      console.log("vendor data is : ",vendorData);
+
+      dispatch(setLoading(true));
+      
+      // Create a deep copy of the data to avoid mutation
+      const updatedData = JSON.parse(JSON.stringify(data));
+      
+      // Get the vendor data from the edit state
+      const updatedVendorData = editVendorDataAtQuotes[vendorKey];
+      
+      // Update the vendor data in the new array
+      if (updatedData[versionIndex]?.items[itemIndex]?.vendors) {
+        updatedData[versionIndex].items[itemIndex].vendors = [
+          ...updatedData[versionIndex].items[itemIndex].vendors.slice(0, vendorIdx),
+          {
+            ...updatedData[versionIndex].items[itemIndex].vendors[vendorIdx],
+            ...updatedVendorData
+          },
+          ...updatedData[versionIndex].items[itemIndex].vendors.slice(vendorIdx + 1)
+        ];
+      }
+
+      // Dispatch the update with the new array
+      dispatch(updateVendorDataAtQuotes(updatedData));
+      setEditingVendorKey(null);
+      toast.success("Vendor details updated successfully");
     } catch (error) {
       console.log("error is ", error);
+      dispatch(setError(error.message));
+      handleAxiosError(error);
+      toast.error("Failed to update vendor details");
+    } finally {
+      dispatch(setLoading(false));
     }
-  }
+  };
 
   const handleEditVendorAtQuotes = (quoteIndex, itemIndex, vendorIdx) => {
     const vendorKey = `${quoteIndex}-${itemIndex}-${vendorIdx}`;
     const itemKey = `${quoteIndex}-${itemIndex}`;
-    const vendor = dummyData[quoteIndex].items[itemIndex].vendors[vendorIdx];
-    const item = dummyData[quoteIndex].items[itemIndex];
+    const vendor = data[quoteIndex].items[itemIndex].vendors[vendorIdx];
+    const item = data[quoteIndex].items[itemIndex];
     setEditingVendorKey(vendorKey);
     setEditVendorDataAtQuotes(prev => ({
       ...prev,
       [vendorKey]: { ...vendor }
     }));
-    // setEditItemDataAtQuotes(prev => ({
-    //   ...prev,
-    //   [itemKey]: { ...item }
-    // }));
-    // setEditItemKey(itemKey);
   };
 
   const handleDeleteVendorAtQuotes = async (vendorId, itemIndex, versionIndex) => {
     try {
-      const updatedData = [...dummyData];
-      updatedData[versionIndex].items[itemIndex].vendors = updatedData[versionIndex].items[itemIndex].vendors.filter(
-        (vendor) => vendor.vendorId !== vendorId
-      );
-      setDummyData(updatedData);
+      dispatch(setLoading(true));
+      dispatch(deleteVendor({ versionIndex, itemIndex, vendorId }));
     } catch (error) {
-      console.log("Error deleting vendor: ", error);
+      dispatch(setError(error.message));
+      handleAxiosError(error);
+    } finally {
+      dispatch(setLoading(false));
     }
   };
 
@@ -129,21 +221,30 @@ export default function QuoteRivisionComponent({ dummyData, setDummyData, client
     }));
   }
 
-  const addNewQuotation = async (data) => {
-    const formData = new FormData();
-    formData.append("clientId", client._id);
-    formData.append("taxPercentage", data.taxPercentage);
-    formData.append("transport", data.transport);
-    formData.append("installation", data.installation);
-    formData.append("totalAmount", data.totalAmount);
-    formData.append("reason", data.reason);
-    formData.append("image", data.image);
-    formData.append("items", JSON.stringify(data.items)); // Important!
+  const addNewQuotation = async (formData) => {
     try {
-      setDummyData([...dummyData, data]);
-      setAddNewQuoteFormModal(false);
+      dispatch(setLoading(true));
+      
+      // Call the API to add new quotation
+      const response = await addNewQuotationToClient(formData);
+
+      console.log("response ka data at add new quotation", response.data);
+      
+        dispatch(addNewQuote(response.data));
+        setAddNewQuoteFormModal(false);
+        toast.success("Quote added successfully!");
+
     } catch (error) {
+
       console.log("error is ", error);
+
+      console.error("Error adding quote:", error);
+      dispatch(setError(error.message));
+      handleAxiosError(error);
+      toast.error("Failed to add quote");
+
+    } finally {
+      dispatch(setLoading(false));
     }
   };
 
@@ -155,12 +256,11 @@ export default function QuoteRivisionComponent({ dummyData, setDummyData, client
         toast.error("No changes to save.");
         return;
       }
-      const updatedDummyData = [...dummyData];
-      updatedDummyData[versionIdx].items[itemIdx] = {
-        ...updatedDummyData[versionIdx].items[itemIdx],
+      const updatedData = [...data];
+      updatedData[versionIdx].items[itemIdx] = {
+        ...updatedData[versionIdx].items[itemIdx],
         ...editedItem,
       };
-      setDummyData(updatedDummyData);
       setEditItemKey({});
       setEditItemDataAtQuotes({});
       setEditingQuoteIndex({});
@@ -172,6 +272,19 @@ export default function QuoteRivisionComponent({ dummyData, setDummyData, client
 
   return (
     <div className="w-screen max-w-[96%] overflow-x-scroll">
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+          <strong className="font-bold">Error: </strong>
+          <span className="block sm:inline">{error}</span>
+        </div>
+      )}
+
+      {loading && (
+        <div className="flex justify-center items-center mb-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        </div>
+      )}
+
       <div className='flex justify-between items-center'>
         <h2 className="text-xl font-bold mb-3">Quote Rivisons</h2>
         <Button onClick={() => setAddNewQuoteFormModal(true)}>Add New Quote</Button>
@@ -185,8 +298,8 @@ export default function QuoteRivisionComponent({ dummyData, setDummyData, client
           </tr>
         </thead>
         <tbody>
-          {dummyData?.map((quote, versionIdx) =>
-            quote.items.map((item, itemIdx) => {
+          {data?.map((quote, versionIdx) =>
+            quote?.items?.map((item, itemIdx) => {
               const hasVendors = item.vendors && item.vendors.length > 0;
               const mainRowKey = `${versionIdx}-${itemIdx}`;
               const isEditingMainItem = editItemKey === mainRowKey;
@@ -269,59 +382,78 @@ export default function QuoteRivisionComponent({ dummyData, setDummyData, client
                         </>
                       )}
                       {/* Vendor Fields */}
-                      <td className="border px-3 py-2">
+                      <td className="border px-3 py-2 min-w-xs">
                         {isEditing ? (
-                          <input
-                            type="text"
-                            name="vendorId"
+                          <select 
+                            name="vendorId" 
                             value={editVendorDataAtQuotes[rowKey]?.vendorId || ""}
                             onChange={(e) => handleVendorDetailsChangeHandlerAtQuotes(e, rowKey)}
-                            className="w-full px-2 py-1 border rounded"
-                          />
+                            className={`w-full px-2 py-1 border rounded bg-white ${
+                              !editVendorDataAtQuotes[rowKey]?.vendorId ? 'border-red-500' : ''
+                            }`}
+                          >
+                            <option value="">Select a vendor *</option>
+                            {vendorData.map((vendor) => (
+                              <option key={vendor._id} value={vendor._id}>
+                                {vendor.name}
+                              </option>
+                            ))}
+                          </select>
                         ) : (
-                          vendor.vendorId
+                          getVendorNameById(vendor.vendorId)
                         )}
                       </td>
-                      <td className="border px-3 py-2">
+                      <td className="border px-3 py-2 relative min-w-xs">
                         {isEditing ? (
                           <input
                             type="text"
                             name="description"
                             value={editVendorDataAtQuotes[rowKey]?.description || ""}
                             onChange={(e) => handleVendorDetailsChangeHandlerAtQuotes(e, rowKey)}
-                            className="w-full px-2 py-1 border rounded"
+                            className={`w-full px-2 border rounded h-16 text-start ${
+                              !editVendorDataAtQuotes[rowKey]?.description?.trim() ? 'border-red-500' : ''
+                            }`}
+                            placeholder="Enter description *"
                           />
                         ) : (
                           vendor.description
                         )}
                       </td>
-                      <td className="border px-3 py-2">
+                      <td className="border px-3 py-2 min-w-[150px]">
                         {isEditing ? (
                           <input
                             type="number"
                             name="quantity"
                             value={editVendorDataAtQuotes[rowKey]?.quantity || ""}
                             onChange={(e) => handleVendorDetailsChangeHandlerAtQuotes(e, rowKey)}
-                            className="w-full px-2 py-1 border rounded"
+                            className={`w-full px-2 py-1 border rounded ${
+                              !editVendorDataAtQuotes[rowKey]?.quantity ? 'border-red-500' : ''
+                            }`}
+                            placeholder="Enter quantity *"
+                            min="1"
                           />
                         ) : (
                           vendor.quantity
                         )}
                       </td>
-                      <td className="border px-3 py-2">
+                      <td className="border px-3 py-2 min-w-[150px]">
                         {isEditing ? (
                           <input
                             type="number"
                             name="costPerUnit"
                             value={editVendorDataAtQuotes[rowKey]?.costPerUnit || ""}
                             onChange={(e) => handleVendorDetailsChangeHandlerAtQuotes(e, rowKey)}
-                            className="w-full px-2 py-1 border rounded"
+                            className={`w-full px-2 py-1 border rounded ${
+                              !editVendorDataAtQuotes[rowKey]?.costPerUnit ? 'border-red-500' : ''
+                            }`}
+                            placeholder="Enter cost per unit *"
+                            min="0"
                           />
                         ) : (
                           `₹${vendor.costPerUnit}`
                         )}
                       </td>
-                      <td className="border px-3 py-2">
+                      <td className="border px-3 py-2 min-w-[150px]">
                         {isEditing ? (
                           <input
                             type="number"
@@ -329,19 +461,24 @@ export default function QuoteRivisionComponent({ dummyData, setDummyData, client
                             value={editVendorDataAtQuotes[rowKey]?.advance || ""}
                             onChange={(e) => handleVendorDetailsChangeHandlerAtQuotes(e, rowKey)}
                             className="w-full px-2 py-1 border rounded"
+                            placeholder="Enter advance amount"
+                            min="0"
                           />
                         ) : (
                           `₹${vendor.advance}`
                         )}
                       </td>
-                      <td className="border px-3 py-2">
+                      <td className="border px-3 py-2 min-w-[150px]">
                         {isEditing ? (
                           <input
                             type="date"
                             name="deliveryDate"
                             value={formatDateForInput(editVendorDataAtQuotes[rowKey]?.deliveryDate)}
                             onChange={(e) => handleVendorDetailsChangeHandlerAtQuotes(e, rowKey)}
-                            className="w-full px-2 py-1 border rounded"
+                            className={`w-full px-2 py-1 border rounded ${
+                              !editVendorDataAtQuotes[rowKey]?.deliveryDate ? 'border-red-500' : ''
+                            }`}
+                            required
                           />
                         ) : (
                           new Date(vendor.deliveryDate).toLocaleDateString()
@@ -479,9 +616,7 @@ export default function QuoteRivisionComponent({ dummyData, setDummyData, client
       </table>
       {/*  Add New Quote Form Modal  */}
       {addNewQuoteFormModal && <AddNewQuoteForm
-
-        dummyData={dummyData}
-        setDummyData={setDummyData}
+        dummyData={data}
         setAddNewQuoteFormModal={setAddNewQuoteFormModal}
         addNewQuotation={addNewQuotation}
         client={client}

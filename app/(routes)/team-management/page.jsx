@@ -172,6 +172,19 @@ export default function TeamManagement() {
         />
       ),
     },
+
+    {
+      header: 'phoneNo',
+      accessorKey: 'phoneNo',
+
+      cell: ({ row, getValue }) => (
+        <EditableCell
+          row={row}
+          columnId="phoneNo"
+          value={getValue()}
+        />
+      ),
+    },
     {
       header: 'Password',
       accessorKey: 'password',
@@ -206,6 +219,8 @@ export default function TeamManagement() {
       ),
     },
   ];
+
+  
 
   const table = useReactTable({
     data: membersData,

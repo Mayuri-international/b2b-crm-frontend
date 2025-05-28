@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { RxCrossCircled } from "react-icons/rx";
 import { Input } from "../ui/input";
@@ -14,63 +14,69 @@ import { addNewQuotationToClient } from "@/lib/api";
 
 import { handleAxiosError } from "@/lib/handleAxiosError";
 
+import { useDispatch } from "react-redux";
 
-[{
-    clientId: "663c1234567890abcdef111",
-    version: 1,
-    items: [
-        {
-            description: "5 Cafe Chair && 10 tables",
-            hsn: "9401",
-            unit: "pcs",
-            quantity: 15,
-            finalUnitPrice: 2200,
-            subtotal: 15 * 2200, // 33000
-            vendors: [
-                {
-                    vendorId: "663c123abc111",
-                    description: "5 cafe chairs", // Optional - not in schema
-                    quantity: 5,
-                    costPerUnit: 1800,
-                    advance: 4000,
-                    deliveryDate: new Date("2025-05-15")
-                },
-                {
-                    vendorId: "663c123abc112",
-                    description: "5 tables", // Optional
-                    quantity: 5,
-                    costPerUnit: 1800,
-                    advance: 4000,
-                    deliveryDate: new Date("2025-05-15")
-                },
-                {
-                    vendorId: "663c123abc113",
-                    description: "5 tables", // Optional
-                    quantity: 5,
-                    costPerUnit: 1800,
-                    advance: 4000,
-                    deliveryDate: new Date("2025-05-15")
-                }
-            ]
-        },
-        {
-            description: "Cafe Chair",
-            hsn: "9401",
-            unit: "pcs",
-            quantity: 10,
-            finalUnitPrice: 2200,
-            subtotal: 10 * 2200, // 22000
-        }
-    ],
-    taxPercent: 18,
-    transport: 1000,
-    installation: 500,
-    notes: "Client prefers premium fabric finish.",
-    totalAmount: 33000 + 22000 + 18 + 1000 + 500, // Helper function below
-    status: "Finalized"
-}
+import { addNewQuote } from "@/app/store/slice/quoteSlice";
 
-]
+
+import toast from "react-hot-toast";
+
+// [{
+//     clientId: "663c1234567890abcdef111",
+//     version: 1,
+//     items: [
+//         {
+//             description: "5 Cafe Chair && 10 tables",
+//             hsn: "9401",
+//             unit: "pcs",
+//             quantity: 15,
+//             finalUnitPrice: 2200,
+//             subtotal: 15 * 2200, // 33000
+//             vendors: [
+//                 {
+//                     vendorId: "663c123abc111",
+//                     description: "5 cafe chairs", // Optional - not in schema
+//                     quantity: 5,
+//                     costPerUnit: 1800,
+//                     advance: 4000,
+//                     deliveryDate: new Date("2025-05-15")
+//                 },
+//                 {
+//                     vendorId: "663c123abc112",
+//                     description: "5 tables", // Optional
+//                     quantity: 5,
+//                     costPerUnit: 1800,
+//                     advance: 4000,
+//                     deliveryDate: new Date("2025-05-15")
+//                 },
+//                 {
+//                     vendorId: "663c123abc113",
+//                     description: "5 tables", // Optional
+//                     quantity: 5,
+//                     costPerUnit: 1800,
+//                     advance: 4000,
+//                     deliveryDate: new Date("2025-05-15")
+//                 }
+//             ]
+//         },
+//         {
+//             description: "Cafe Chair",
+//             hsn: "9401",
+//             unit: "pcs",
+//             quantity: 10,
+//             finalUnitPrice: 2200,
+//             subtotal: 10 * 2200, // 22000
+//         }
+//     ],
+//     taxPercent: 18,
+//     transport: 1000,
+//     installation: 500,
+//     notes: "Client prefers premium fabric finish.",
+//     totalAmount: 33000 + 22000 + 18 + 1000 + 500, // Helper function below
+//     status: "Finalized"
+// }
+
+// ]
 
 
 let rootItemsFields = [
@@ -96,24 +102,27 @@ let rootQuotationFields = [
 
 let type_of_item_changes = {
 
-    removed:"removed",
-    add:"add",
-    modified:"modified",
+    removed: "removed",
+    add: "add",
+    modified: "modified",
 
 }
 
 
-export default function AddNewQuoteForm({ dummyData, setDummyData, setAddNewQuoteFormModal, addNewQuotation,client }) {
+export default function AddNewQuoteForm({ dummyData = [], setAddNewQuoteFormModal, addNewQuotation, client }) {
 
     // we have to filter out the things on the basis of the version
 
     // if it is a new quote then we have to show the new quote form
 
+    const dispatch = useDispatch();
+    const [isLoading, setIsLoading] = useState(false);
+
     // Add version to defaultValues
     const { register, handleSubmit, control, reset, watch, setValue, formState: { errors } } = useForm({
         defaultValues: {
             version: "New Quote",
-            clientId: client._id,
+            clientId: client?._id || "",
             items: [
                 {
                     description: '',
@@ -136,37 +145,50 @@ export default function AddNewQuoteForm({ dummyData, setDummyData, setAddNewQuot
     // Watch version field
     const selectedVersion = watch("version");
 
+    // Ensure dummyData is always an array
+    const safeDummyData = Array.isArray(dummyData) ? dummyData : [];
+
     const onSubmit = async (data) => {
+        if (!client?._id) {
+            toast.error("Client information is missing");
+            return;
+        }
+
         if (data.version === "New Quote") {
             try {
+                setIsLoading(true);
+                console.log("on submit new quote form ke andar ", data);
+
                 // Create FormData instance
                 const formData = new FormData();
-                
-                // Handle the image file separately
-                if (data.image && data.image[0]) {
+
+                const dataPayload = {
+                    clientId: client._id,
+                    taxPercent: data.taxPercent,
+                    transport: data.transport,
+                    installation: data.installation,
+                    totalAmount: data.totalAmount,
+                    reason: data.reason,
+                    notes: data.notes,
+                    items: data.items,
+                }
+
+                // Handle the image file
+                if (data.image?.[0]) {
                     formData.append('image', data.image[0]);
                 }
-                
-                // Create a copy of data without the image
-                const jsonData = { ...data };
-                delete jsonData.image;
-                
-                // Convert the rest of the data to JSON and append as a single field
-                formData.append('data', JSON.stringify(jsonData));
 
-                console.log("Form data structure:", {
-                    items: data.items,
-                    itemsType: Array.isArray(data.items) ? "Array" : typeof data.items,
-                    itemsLength: data.items?.length,
-                    fullData: data
-                });
+                formData.append("data", JSON.stringify(dataPayload));
 
-                const result = await addNewQuotationToClient(formData);
-                console.log("result is ", result);
+                // Call the addNewQuotation function with the formData
+                await addNewQuotation(formData);
 
             } catch (error) {
-                console.log("error is ", error);
+                console.error("Error submitting form:", error);
                 handleAxiosError(error);
+                toast.error(error.message || "Failed to add quote");
+            } finally {
+                setIsLoading(false);
             }
         } else {
             // Updating an existing version
@@ -177,9 +199,9 @@ export default function AddNewQuoteForm({ dummyData, setDummyData, setAddNewQuot
             let rootFieldChanges = {};
             rootQuotationFields.forEach(field => {
 
-                if(field === "totalAmount"){
+                if (field === "totalAmount") {
 
-                    if(parseInt(data[field]) !== parseInt(original[field])){
+                    if (parseInt(data[field]) !== parseInt(original[field])) {
 
                         rootFieldChanges[field] = data[field];
                     }
@@ -187,10 +209,10 @@ export default function AddNewQuoteForm({ dummyData, setDummyData, setAddNewQuot
                 }
                 else if (data[field] !== original[field]) {
 
-                    console.log("field name is ",field);
+                    console.log("field name is ", field);
 
                     console.log("data field side ", data[field]);
-                    console.log("original field side ",original[field]);
+                    console.log("original field side ", original[field]);
                     rootFieldChanges[field] = data[field];
                 }
             });
@@ -350,8 +372,10 @@ export default function AddNewQuoteForm({ dummyData, setDummyData, setAddNewQuot
                         >
                             <option value="">Select</option>
                             <option value="New Quote">New Quote</option>
-                            {dummyData.map((item, index) => (
-                                <option key={index} value={item.version}>{item.version}</option>
+                            {safeDummyData.map((item, index) => (
+                                <option key={index} value={item?.version || ''}>
+                                    {item?.version || 'Unknown Version'}
+                                </option>
                             ))}
                         </select>
 
@@ -433,7 +457,13 @@ export default function AddNewQuoteForm({ dummyData, setDummyData, setAddNewQuot
                     </div>
 
                     <div className="text-center">
-                        <Button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">Submit</Button>
+                        <Button
+                            type="submit"
+                            className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700"
+                            disabled={isLoading}
+                        >
+                            {isLoading ? "Submitting..." : "Submit"}
+                        </Button>
                     </div>
                 </form>
             </div>

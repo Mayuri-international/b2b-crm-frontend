@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
-import { taskAssigningStatus } from "@/lib/data";
+import { taskAssigningStatus, user_role } from "@/lib/data";
 import {
     fetchAllSalesPerson,
     fetchAllUserQueries,
@@ -29,7 +29,11 @@ import { HiOutlineArrowRight } from 'react-icons/hi';
 import { enqueryHeadingName } from "@/lib/data";
 
 import { clearSalesPersonData } from "@/app/store/slice/salesPersonData";
+// import { getAllMembersData } from "@/lib/api";
 
+import { setAllMembersData } from "@/app/store/slice/membersSlice";
+
+import { getAllMembersData } from "@/lib/api";
 
 export default function ClientDashboardPage() {
     const [filters, setFilters] = useState({
@@ -62,31 +66,72 @@ export default function ClientDashboardPage() {
 
     const clients = cachedQueryData || fetchedClientsQuery;
 
-    const salesPersonData = useSelector((state) => state.salesPerson.data);
 
-    console.log("sales person data", salesPersonData);
+    // const salesPersonData = useSelector((state) => state.salesPerson.data);
 
+    // console.log("sales person data", salesPersonData);
+
+    // quote members data 
+
+    let membersData = useSelector((state) => state.members.data);
+
+    console.log("members data", membersData);
+
+    let salesPersonData = membersData && membersData.filter((val)=>val.role === user_role.sales);
+
+    console.log("sales person data : ",salesPersonData);
+
+    // useEffect(() => {
+
+    //     async function fetchSalesPersonData() {
+
+    //         try {
+
+    //             const result = await fetchAllSalesPerson();
+
+    //             dispatch(setUserData(result));
+
+    //         } catch (error) {
+
+    //             console.log("error is ", error);
+
+    //         }
+    //     }
+
+    //     if (!salesPersonData) {
+
+    //         fetchSalesPersonData();
+
+    //     }
+
+    // }, []);
 
     useEffect(() => {
 
-        async function fetchSalesPersonData() {
+        async function getAllUserData() {
 
             try {
 
-                const result = await fetchAllSalesPerson();
+                const result = await getAllMembersData();
 
-                dispatch(setUserData(result));
+                dispatch(setAllMembersData(result));
+
+                toast.success("all user data fetched successfully");
 
             } catch (error) {
 
-                console.log("error is ", error);
+                console.log("error is :", error);
+                handleAxiosError(error);
 
             }
+
         }
 
-        if (!salesPersonData) {
+        if (!membersData || membersData.length === 0) {
 
-            fetchSalesPersonData();
+            console.log("hellow ")
+
+            getAllUserData();
 
         }
 

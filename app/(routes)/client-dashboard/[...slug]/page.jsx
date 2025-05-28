@@ -54,6 +54,8 @@ export default function Clients() {
 
   console.log("filter query data is ", filterQueryData);
 
+  console.log("quote data is :", quoteData);
+
 
   const [dummyData, setDummyData] = useState(
 
@@ -181,6 +183,7 @@ export default function Clients() {
 
   useEffect(() => {
 
+    console.log("quote data is :", quoteData);
 
     async function fetchQuoteData() {
 
@@ -199,6 +202,7 @@ export default function Clients() {
       }
 
     }
+
 
     if (!quoteData) {
 
@@ -252,8 +256,8 @@ export default function Clients() {
         {/* Quotes rivisons and other info  and also update the Quote */}
 
         <QuoteRivisionComponent
-          dummyData={dummyData}
-          setDummyData={setDummyData}
+          dummyData={quoteData}
+          dispatch = {dispatch}
           client={client}
           setClient={setClient}
         />
